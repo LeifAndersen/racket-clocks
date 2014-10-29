@@ -5,6 +5,7 @@
 
 (define-ffi-definer define-grinder (ffi-lib "libgrind"))
 (define-ffi-definer define-sleeper (ffi-lib "libsleeper"))
+(define-ffi-definer define-libc    (ffi-lib "libc"))
 
 (define-grinder grind (_fun -> _int))
 (define-grinder grind2 (_fun -> _int))
