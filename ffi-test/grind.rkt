@@ -23,12 +23,12 @@
 (define (mysleep)
   (sleeper 2))
 
-(displayln "Current-process-group-milliseconds")
-(time-grinder grind current-process-group-milliseconds)
+(displayln "Current-process-milliseconds subprocesses")
+(time-grinder grind current-process-milliseconds 'subprocesses)
 (newline)
-(time-grinder grind2 current-process-group-milliseconds)
+(time-grinder grind2 current-process-milliseconds 'subprocesses)
 (newline)
-(time-grinder mysleep current-process-group-milliseconds)
+(time-grinder mysleep current-process-milliseconds 'subprocesses)
 (newline)
 
 (displayln "Current-process-milliseconds")
