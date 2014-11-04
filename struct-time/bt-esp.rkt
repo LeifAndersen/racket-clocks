@@ -7,15 +7,58 @@
 (require racket/cmdline racket/require (for-syntax racket/base)
          (filtered-in (lambda (name) (regexp-replace #rx"unsafe-" name ""))
                       racket/unsafe/ops)
-         feature-profile)
+         syntax/quote syntax/srcloc
+         racket/pretty racket/match
+         (for-syntax syntax/parse)
+         unstable/logging)
+
+(begin-for-syntax
+  (define (syntax->srcloc x)
+    (vector (syntax-source x)
+            (syntax-line x)
+            (syntax-column x)
+            (syntax-position x)
+            (syntax-span x))))
 
 (struct *leaf (val))
 (struct *node *leaf (left right))
 
-(define-syntax leaf  (make-rename-transformer #'*leaf))
+;(define-syntax leaf  (make-rename-transformer #'*leaf))
 (define-syntax leaf? (make-rename-transformer #'*leaf?))
-(define-syntax node  (make-rename-transformer #'*node))
+;(define-syntax node  (make-rename-transformer #'*node))
 (define-syntax node? (make-rename-transformer #'*node?))
+(define-syntax (leaf stx)
+  (syntax-parse stx
+    [(_ val)
+     (quasisyntax/loc stx
+;(define-syntax-rule (leaf val)
+       (let ()
+         (define start (current-process-milliseconds (current-thread)))
+         (define l (*leaf val))
+         (define end (current-process-milliseconds (current-thread)))
+         (log-message (current-logger) 'info ""
+                      (vector #,(syntax->srcloc stx)
+                              start
+                              end))
+         l)
+     ;)
+     )]))
+(define-syntax (node stx)
+  (syntax-parse stx
+    [(_ val left right)
+     (quasisyntax/loc stx
+;(define-syntax-rule (node val left right)
+       (let ()
+         (define start (current-process-milliseconds (current-thread)))
+         (define n (*leaf val))
+         (define end (current-process-milliseconds (current-thread)))
+         (log-message (current-logger) 'info ""
+                      (vector #,(syntax->srcloc stx)
+                              start
+                              end))
+         n)
+     ;)
+     )]))
 (define-syntax-rule (leaf-val l)   (struct-ref l 0))
 (define-syntax-rule (node-left n)  (struct-ref n 1))
 (define-syntax-rule (node-right n) (struct-ref n 2))
@@ -55,4 +98,48 @@
               max-depth
               (check long-lived-tree)))))
 
-(command-line #:args (n) (main (string->number n)))
+
+;; For profiling
+(define (extract-struct-feature times)
+  (for/fold ([acc (hash 'total 0)])
+            ([i times])
+    (match i
+      [(vector src t-start t-end)
+       (define t-delta (- t-end t-start))
+       (hash-set* acc
+                  src (+ (hash-ref acc src 0) t-delta)
+                  'total (+ (hash-ref acc 'total) t-delta))]
+      [else (error (format "Expected feature, got: ~a" times))])))
+
+#;
+(define (extract-struct-feature times)
+  (define (esf* times acc)
+    (match times
+      [(cons (vector stx t-start t-end) rest)
+       (define t-delta (- t-end t-start))
+       (esf* rest
+             (hash-update acc stx (λ (x) (+ x t-delta)) t-delta))]
+      [null acc]
+      [else (error "Expected list, got ~a" times)]))
+  (esf* times (hasheq 'total 0)))
+
+
+(define (print-struct-feature ftimes)
+  (printf "Struct Allocation: ~a~n" (hash-ref ftimes 'total))
+  (for ([(k v) ftimes]
+        #:unless (equal? k 'total))
+    (printf "    ~a : ~a~n" k v)))
+
+(module+ main
+  (define times* '())
+
+  (with-intercepted-logging
+   (λ (i) (set! times* (cons (vector-ref i 2) times*)))
+   (λ () (command-line #:args (n) (main (string->number n))))
+   'info)
+
+  (define total-time (current-process-milliseconds (current-thread)))
+  (define times (reverse times*))
+  (define ftimes (extract-struct-feature times))
+  (printf "Total time: ~a~n~n"total-time)
+  (print-struct-feature ftimes))
