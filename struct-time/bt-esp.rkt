@@ -139,6 +139,7 @@
    'info)
 
   (define total-time (current-process-milliseconds (current-thread)))
+  (displayln "Analyzing...")
   (define times (reverse times*))
   (define ftimes (extract-struct-feature times))
   (printf "Total time: ~a~n~n"total-time)
