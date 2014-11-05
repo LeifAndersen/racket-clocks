@@ -6,8 +6,7 @@
 
 (require racket/cmdline racket/require (for-syntax racket/base)
          (filtered-in (lambda (name) (regexp-replace #rx"unsafe-" name ""))
-                      racket/unsafe/ops)
-         feature-profile)
+                      racket/unsafe/ops))
 
 (struct *leaf (val))
 (struct *node *leaf (left right))
